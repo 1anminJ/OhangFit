@@ -3,6 +3,22 @@
 import { useState, FormEvent } from "react";
 import type { Gender, ProfileInput } from "@/lib/api";
 
+// 숫자만 입력해도 구분자(-, :)를 자동으로 넣어준다 (예: "20040103" -> "2004-01-03").
+function formatDateInput(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 8);
+  let result = digits.slice(0, 4);
+  if (digits.length > 4) result += "-" + digits.slice(4, 6);
+  if (digits.length > 6) result += "-" + digits.slice(6, 8);
+  return result;
+}
+
+function formatTimeInput(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 4);
+  let result = digits.slice(0, 2);
+  if (digits.length > 2) result += ":" + digits.slice(2, 4);
+  return result;
+}
+
 export interface OnboardingFormProps {
   initialValues?: ProfileInput;
   submitLabel: string;
@@ -54,7 +70,7 @@ export function OnboardingForm({
           required
           placeholder="YYYY-MM-DD (예: 1990-05-20)"
           value={birthDate}
-          onChange={(e) => setBirthDate(e.target.value)}
+          onChange={(e) => setBirthDate(formatDateInput(e.target.value))}
           className="border rounded px-3 py-2"
         />
       </label>
@@ -76,7 +92,7 @@ export function OnboardingForm({
             required={!birthTimeUnknown}
             placeholder="HH:MM (예: 10:30)"
             value={birthTime ?? ""}
-            onChange={(e) => setBirthTime(e.target.value)}
+            onChange={(e) => setBirthTime(formatTimeInput(e.target.value))}
             className="border rounded px-3 py-2"
           />
         </label>
