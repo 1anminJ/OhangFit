@@ -1,0 +1,27 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ohangfit
+      POSTGRES_PASSWORD: ohangfit
+      POSTGRES_DB: ohangfit
+    ports:
+      # 호스트에 5432를 쓰는 다른 Postgres가 떠 있을 수 있어 5433으로 매핑.
+      # 컨테이너 간 통신(backend->db)은 내부 5432를 그대로 씀, 영향 없음.
+      - "5433:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://ohangfit:ohangfit@db:5432/ohangfit
+    volumes:
+      - ./backend/app:/app/app
+    depends_on:
+      - db
+
+volumes:
+  db_data:

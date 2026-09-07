@@ -1,0 +1,16 @@
+# python (backend)
+__pycache__/
+*.pyc
+.venv/
+
+# 환경변수/시크릿
+.env
+.env.local
+.env.*.local
+
+# OS/에디터
+.DS_Store
+.vscode/
+
+# docker
+docker-compose.override.yml
