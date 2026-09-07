@@ -15,7 +15,9 @@ export function OnboardingForm({
   onSubmit,
 }: OnboardingFormProps) {
   const [birthDate, setBirthDate] = useState(initialValues?.birth_date ?? "");
-  const [birthTime, setBirthTime] = useState(initialValues?.birth_time ?? "");
+  const [birthTime, setBirthTime] = useState(
+    initialValues?.birth_time?.slice(0, 5) ?? ""
+  );
   const [birthTimeUnknown, setBirthTimeUnknown] = useState(
     initialValues?.birth_time_unknown ?? false
   );
@@ -48,8 +50,9 @@ export function OnboardingForm({
       <label className="flex flex-col gap-1">
         생년월일
         <input
-          type="date"
+          type="text"
           required
+          placeholder="YYYY-MM-DD (예: 1990-05-20)"
           value={birthDate}
           onChange={(e) => setBirthDate(e.target.value)}
           className="border rounded px-3 py-2"
@@ -69,9 +72,9 @@ export function OnboardingForm({
         <label className="flex flex-col gap-1">
           출생시간
           <input
-            type="time"
+            type="text"
             required={!birthTimeUnknown}
-            step={1}
+            placeholder="HH:MM (예: 10:30)"
             value={birthTime ?? ""}
             onChange={(e) => setBirthTime(e.target.value)}
             className="border rounded px-3 py-2"

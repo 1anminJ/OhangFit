@@ -47,7 +47,9 @@ export default function ProfileDetailPage() {
       <h1 className="text-xl font-bold mb-4">저장된 사주 정보</h1>
       <dl className="flex flex-col gap-2 mb-4">
         <div>생년월일: {profile.birth_date}</div>
-        <div>출생시간: {profile.birth_time_unknown ? "모름" : profile.birth_time}</div>
+        <div>
+          출생시간: {profile.birth_time_unknown ? "모름" : profile.birth_time?.slice(0, 5)}
+        </div>
         <div>성별: {profile.gender === "male" ? "남성" : "여성"}</div>
         <div>태어난 지역: {profile.birth_region}</div>
       </dl>
