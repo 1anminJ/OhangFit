@@ -10,9 +10,12 @@ from app.models import profile  # noqa: F401  Base.metadata에 테이블 등록
 
 @pytest.fixture(scope="session", autouse=True)
 def _tables():
+    # ponytail: drop_all teardown removed — this runs against the shared dev DB
+    # (same one Alembic manages), and dropping it desyncs Alembic's bookkeeping
+    # from actual schema state. create_all is idempotent and just a safety net
+    # for a fresh DB with no migrations applied yet. Per-test isolation is fully
+    # handled by db_session's transaction rollback below.
     Base.metadata.create_all(engine)
-    yield
-    Base.metadata.drop_all(engine)
 
 
 @pytest.fixture
