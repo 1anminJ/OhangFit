@@ -368,6 +368,7 @@ git commit -m "feat: 온보딩 Pydantic 스키마 및 검증 로직 추가"
 - Create: `backend/app/routers/__init__.py`
 - Create: `backend/app/routers/profiles.py`
 - Modify: `backend/conftest.py` (DB 세션/클라이언트 fixture 추가)
+- Modify: `backend/app/main.py` (라우터 등록 — 실행 중 발견: 이 태스크의 통합 테스트가 `app`에 라우터가 마운트돼 있어야 동작하므로, 원래 Task 5 Step1이던 등록을 여기로 옮김)
 - Test: `backend/tests/test_profiles_api.py`
 - Modify: `backend/requirements.txt`
 
@@ -523,6 +524,7 @@ Expected: FAIL — `ModuleNotFoundError: No module named 'app.routers'`
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
@@ -579,7 +581,12 @@ def update_profile(
     try:
         validated = ProfileCreate(**current)
     except ValidationError as exc:
-        raise HTTPException(status_code=422, detail=exc.errors()) from exc
+        # ponytail: exc.errors()의 "input"에 date/time 같은 non-JSON 값이 그대로 들어있어서
+        # jsonable_encoder로 감싸지 않으면 여기서 500이 남 (FastAPI가 HTTPException.detail을
+        # 자동으로 인코딩해주지 않음)
+        raise HTTPException(
+            status_code=422, detail=jsonable_encoder(exc.errors())
+        ) from exc
 
     _assign_fields(profile, validated)
     db.commit()
@@ -587,36 +594,9 @@ def update_profile(
     return profile
 ```
 
-- [ ] **Step 7: 테스트 실행해서 통과 확인**
+- [ ] **Step 6a: main.py에 라우터 등록** (원래 Task 5 Step1이었으나, 이 태스크의 통합 테스트가 통과하려면 여기서 먼저 등록해야 해서 이동함)
 
-Run: `cd backend && .venv/bin/pytest tests/test_profiles_api.py -v`
-Expected: PASS (7 passed) — `docker compose up -d db`가 떠 있어야 함(Global Constraints 참고)
-
-- [ ] **Step 8: 전체 백엔드 테스트 스위트 통과 확인**
-
-Run: `cd backend && .venv/bin/pytest -v`
-Expected: 이 태스크까지의 모든 테스트(모델/스키마/API) PASS
-
-- [ ] **Step 9: 커밋 명령어 안내**
-
-```bash
-git add backend/app/routers backend/conftest.py backend/tests/test_profiles_api.py backend/requirements.txt
-git commit -m "feat: /profiles CRUD API 구현"
-```
-
----
-
-### Task 5: 라우터 연결 + 컨테이너 스모크 테스트
-
-**Files:**
-- Modify: `backend/app/main.py`
-
-**Interfaces:**
-- Consumes: `app.routers.profiles.router` (Task 4)
-
-- [ ] **Step 1: main.py에 라우터 등록**
-
-`backend/app/main.py`에서 아래 줄:
+`backend/app/main.py`에서:
 
 ```python
 from app.config import settings
@@ -637,12 +617,39 @@ from app.routers.profiles import router as profiles_router
 app.include_router(profiles_router)
 ```
 
-- [ ] **Step 2: 도커로 재빌드/기동**
+- [ ] **Step 7: 테스트 실행해서 통과 확인**
+
+Run: `cd backend && .venv/bin/pytest tests/test_profiles_api.py -v`
+Expected: PASS (7 passed) — `docker compose up -d db`가 떠 있어야 함(Global Constraints 참고)
+
+- [ ] **Step 8: 전체 백엔드 테스트 스위트 통과 확인**
+
+Run: `cd backend && .venv/bin/pytest -v`
+Expected: 이 태스크까지의 모든 테스트(모델/스키마/API) PASS
+
+- [ ] **Step 9: 커밋 명령어 안내**
+
+```bash
+git add backend/app/routers backend/app/main.py backend/conftest.py backend/tests/test_profiles_api.py backend/requirements.txt
+git commit -m "feat: /profiles CRUD API 구현 및 라우터 등록"
+```
+
+---
+
+### Task 5: 컨테이너 스모크 테스트
+
+**Files:**
+- (수정 없음 — Task 4에서 라우터 등록까지 이미 끝남. 이 태스크는 도커 환경에서 실제로 동작하는지 확인만 한다)
+
+**Interfaces:**
+- Consumes: `app.routers.profiles.router`, 이미 `app.main`에 등록됨 (Task 4)
+
+- [ ] **Step 1: 도커로 재빌드/기동**
 
 Run: `cd /Users/hanminjeong/orca/projects/OhangFit && docker compose up -d --build`
 Expected: `backend`, `db` 컨테이너 모두 Running
 
-- [ ] **Step 3: 컨테이너 안에서 실제 API 스모크 테스트**
+- [ ] **Step 2: 컨테이너 안에서 실제 API 스모크 테스트**
 
 Run:
 ```bash
@@ -652,16 +659,11 @@ curl -s -X POST http://localhost:8000/profiles \
 ```
 Expected: HTTP 201, 응답 JSON에 `id` 필드 포함. 이어서 그 `id`로 `curl http://localhost:8000/profiles/<id>` 실행 시 동일 데이터 반환 확인
 
-- [ ] **Step 4: 컨테이너 정리**
+- [ ] **Step 3: 컨테이너 정리**
 
 Run: `docker compose down`
 
-- [ ] **Step 5: 커밋 명령어 안내**
-
-```bash
-git add backend/app/main.py
-git commit -m "feat: /profiles 라우터를 앱에 등록"
-```
+(커밋 없음 — 이 태스크는 코드 변경이 없는 검증 전용 태스크)
 
 ---
 

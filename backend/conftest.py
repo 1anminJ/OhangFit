@@ -1,2 +1,37 @@
 # pytest가 이 파일을 기준으로 backend/ 를 sys.path에 추가해줘서 `import app`이 동작함.
-# DB fixture는 Task 4에서 추가.
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy.orm import sessionmaker
+
+from app.db import Base, engine, get_db
+from app.main import app
+from app.models import profile  # noqa: F401  Base.metadata에 테이블 등록
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _tables():
+    Base.metadata.create_all(engine)
+    yield
+    Base.metadata.drop_all(engine)
+
+
+@pytest.fixture
+def db_session():
+    connection = engine.connect()
+    transaction = connection.begin()
+    testing_session = sessionmaker(bind=connection)()
+    yield testing_session
+    testing_session.close()
+    transaction.rollback()
+    connection.close()
+
+
+@pytest.fixture
+def client(db_session):
+    def _override_get_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = _override_get_db
+    with TestClient(app) as test_client:
+        yield test_client
+    app.dependency_overrides.clear()
