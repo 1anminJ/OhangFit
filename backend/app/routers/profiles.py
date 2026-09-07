@@ -20,6 +20,16 @@ def _assign_fields(profile: Profile, validated: ProfileBase) -> None:
     profile.birth_region = validated.birth_region
 
 
+def _to_dict(profile: Profile) -> dict:
+    return {
+        "birth_date": profile.birth_date,
+        "birth_time": profile.birth_time,
+        "birth_time_unknown": profile.birth_time_unknown,
+        "gender": profile.gender,
+        "birth_region": profile.birth_region,
+    }
+
+
 @router.post("", response_model=ProfileRead, status_code=201)
 def create_profile(payload: ProfileCreate, db: Session = Depends(get_db)) -> Profile:
     profile = Profile()
@@ -46,13 +56,7 @@ def update_profile(
     if profile is None:
         raise HTTPException(status_code=404, detail="프로필을 찾을 수 없습니다.")
 
-    current = {
-        "birth_date": profile.birth_date,
-        "birth_time": profile.birth_time,
-        "birth_time_unknown": profile.birth_time_unknown,
-        "gender": profile.gender,
-        "birth_region": profile.birth_region,
-    }
+    current = _to_dict(profile)
     current.update(payload.model_dump(exclude_unset=True))
 
     try:

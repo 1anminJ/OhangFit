@@ -50,3 +50,8 @@ def test_requires_birth_time_when_not_unknown():
 def test_rejects_blank_region():
     with pytest.raises(ValidationError):
         ProfileCreate(**_valid_payload(birth_region="   "))
+
+
+def test_rejects_invalid_gender():
+    with pytest.raises(ValidationError):
+        ProfileCreate(**_valid_payload(gender="invalid"))

@@ -58,6 +58,7 @@ CLAUDE.md   → 이 문서
 - frontend는 컨테이너화하지 않고 `cd frontend && npm run dev`로 로컬 실행(3000), backend 컨테이너의 API(localhost:8000)를 바라봄
 - backend 헬스체크: `GET /health` (앱 기동 확인), `GET /health/db` (DB 커넥션 확인)
 - backend 환경변수: `backend/.env.example` 참고 (`DATABASE_URL`, `CORS_ORIGINS`). 로컬에서 docker 없이 backend만 띄울 때는 `backend/.env` 생성 후 사용 (기본값은 `localhost:5433` 기준)
+- frontend 환경변수: `frontend/.env.example` 참고 (`NEXT_PUBLIC_API_URL`, 백엔드 API 주소). Next.js는 `NEXT_PUBLIC_*` 변수를 런타임이 아니라 **빌드 타임**에 JS 번들에 박아넣으므로, 배포 시 `npm run build` 실행 전에 반드시 올바른 값을 설정해야 함 (빠뜨리면 번들이 조용히 `localhost:8000`을 가리키게 되고 서버 에러도 없이 전체 방문자에게 깨진 상태로 배포됨)
 - backend를 docker 없이 로컬로 띄우려면: `cd backend && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt && .venv/bin/uvicorn app.main:app --reload`
 - DB 마이그레이션: Alembic 사용, `backend/` 에서 실행
   - 모델 추가 후 `alembic/env.py`에 `from app.models import <module>` 등록 필요 (target_metadata가 `app.db.Base.metadata`를 봄)
