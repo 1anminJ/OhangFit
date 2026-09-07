@@ -37,9 +37,12 @@
     main.py   → FastAPI 앱, 라우터 등록
     config.py → 환경변수 설정 (pydantic-settings)
     db.py     → SQLAlchemy 엔진/세션/Base
-    /models   → SQLAlchemy 모델 (Profile 등)
+    /models   → SQLAlchemy 모델 (Profile, AnalysisResult 등)
     /schemas  → Pydantic 스키마 (요청/응답 검증)
-    /routers  → API 라우터 (/profiles 등)
+    /routers  → API 라우터 (/profiles, /profiles/{id}/analysis 등)
+    /adapters → 외부 연동 어댑터 인터페이스 (SajuAdapter 등). 벤더 미정인 동안은
+                Mock*Adapter 구현체로 채워두고, 벤더 정해지면 같은 인터페이스의
+                새 구현체로 교체 (호출부는 안 바뀜)
   /alembic    → DB 마이그레이션
   /tests      → pytest (모델/스키마/API 단위·통합 테스트)
   conftest.py → pytest 루트 설정 (sys.path + DB 세션/TestClient fixture)
@@ -62,6 +65,7 @@ CLAUDE.md   → 이 문서
 - backend를 docker 없이 로컬로 띄우려면: `cd backend && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt && .venv/bin/uvicorn app.main:app --reload`
 - DB 마이그레이션: Alembic 사용, `backend/` 에서 실행
   - 모델 추가 후 `alembic/env.py`에 `from app.models import <module>` 등록 필요 (target_metadata가 `app.db.Base.metadata`를 봄)
+  - **새 모델을 만들면 pytest보다 마이그레이션을 먼저 생성할 것.** `conftest.py`의 `create_all()` 세이프티넷 때문에, 모델을 만든 뒤 마이그레이션 생성 전에 pytest를 먼저 돌리면 테이블이 create_all로 먼저 생겨버려서 `alembic revision --autogenerate`가 빈 마이그레이션(`pass`)을 만들어냄 (alembic 기록과 실제 스키마는 여기서도 어긋남 — 실제로 한 번 겪은 버그, `alembic stamp <revision>`으로 수동 동기화해서 복구했음). 순서: 모델 작성 → 마이그레이션 생성·적용 → 그 다음에 pytest
   - 새 마이그레이션 생성: `.venv/bin/alembic revision --autogenerate -m "설명"`
   - 적용: `.venv/bin/alembic upgrade head` (docker db가 떠 있어야 함, `docker compose up -d db`)
   - (TBD: 시딩 스크립트 — 큐레이션 아이템 등 생기면 여기에 기록)
@@ -92,7 +96,7 @@ CLAUDE.md   → 이 문서
 
 ## 진행 상황 (Progress Log)
 
-- [ ] Phase 1 (MVP) — 진행 중 (온보딩 완료: `POST/GET/PATCH /profiles` + 입력/조회/수정 화면, 실제 연동 테스트 완료. 분석/큐레이션/결제/공유 남음)
+- [ ] Phase 1 (MVP) — 진행 중 (온보딩·분석 완료. 온보딩: `POST/GET/PATCH /profiles` + 입력/조회/수정 화면. 분석: `POST/GET /profiles/{id}/analysis`(MockSajuAdapter, 결정론적 목업) + 오행 분포/부족/과다 표시, 온보딩 저장 시 자동 실행. 둘 다 실제 연동 테스트 완료. 큐레이션/결제/공유 남음)
 - [ ] Phase 2 — 시작 전
 - [ ] Phase 3 — 시작 전
 

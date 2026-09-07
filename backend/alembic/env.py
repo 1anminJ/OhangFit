@@ -8,7 +8,7 @@ from alembic import context
 from app.config import settings
 from app.db import Base
 # 모델은 여기서 import되어야 Base.metadata에 등록되고 autogenerate가 인식함
-from app.models import profile  # noqa: F401
+from app.models import analysis_result, profile  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
