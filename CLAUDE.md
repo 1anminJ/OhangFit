@@ -27,16 +27,26 @@
 
 ```
 /frontend   → Next.js (App Router, TypeScript, Tailwind), 모바일 우선 반응형
-  /src/app  → 라우트
+  /src/app
+    /onboarding        → 온보딩 입력 화면 (생성)
+    /onboarding/[id]   → 저장된 온보딩 결과 조회/수정 화면
+  /src/components      → 재사용 컴포넌트 (OnboardingForm 등)
+  /src/lib/api.ts       → 백엔드 API 클라이언트 (fetch 래퍼, 타입)
 /backend    → Python FastAPI
   /app
     main.py   → FastAPI 앱, 라우터 등록
     config.py → 환경변수 설정 (pydantic-settings)
     db.py     → SQLAlchemy 엔진/세션/Base
-  /alembic    → DB 마이그레이션 (alembic init 완료, 모델 생기면 revision 추가)
+    /models   → SQLAlchemy 모델 (Profile 등)
+    /schemas  → Pydantic 스키마 (요청/응답 검증)
+    /routers  → API 라우터 (/profiles 등)
+  /alembic    → DB 마이그레이션
+  /tests      → pytest (모델/스키마/API 단위·통합 테스트)
+  conftest.py → pytest 루트 설정 (sys.path + DB 세션/TestClient fixture)
   requirements.txt
   Dockerfile
 docker-compose.yml → PostgreSQL(db) + backend 컨테이너 (frontend는 미포함, 로컬 npm run dev)
+docs/superpowers/  → 기능별 설계 문서(specs)/구현 계획(plans)
 ohang_fit_prd.md   → PRD 전체 문서
 CLAUDE.md   → 이 문서
 ```
@@ -48,12 +58,14 @@ CLAUDE.md   → 이 문서
 - frontend는 컨테이너화하지 않고 `cd frontend && npm run dev`로 로컬 실행(3000), backend 컨테이너의 API(localhost:8000)를 바라봄
 - backend 헬스체크: `GET /health` (앱 기동 확인), `GET /health/db` (DB 커넥션 확인)
 - backend 환경변수: `backend/.env.example` 참고 (`DATABASE_URL`, `CORS_ORIGINS`). 로컬에서 docker 없이 backend만 띄울 때는 `backend/.env` 생성 후 사용 (기본값은 `localhost:5433` 기준)
+- frontend 환경변수: `frontend/.env.example` 참고 (`NEXT_PUBLIC_API_URL`, 백엔드 API 주소). Next.js는 `NEXT_PUBLIC_*` 변수를 런타임이 아니라 **빌드 타임**에 JS 번들에 박아넣으므로, 배포 시 `npm run build` 실행 전에 반드시 올바른 값을 설정해야 함 (빠뜨리면 번들이 조용히 `localhost:8000`을 가리키게 되고 서버 에러도 없이 전체 방문자에게 깨진 상태로 배포됨)
 - backend를 docker 없이 로컬로 띄우려면: `cd backend && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt && .venv/bin/uvicorn app.main:app --reload`
 - DB 마이그레이션: Alembic 사용, `backend/` 에서 실행
   - 모델 추가 후 `alembic/env.py`에 `from app.models import <module>` 등록 필요 (target_metadata가 `app.db.Base.metadata`를 봄)
   - 새 마이그레이션 생성: `.venv/bin/alembic revision --autogenerate -m "설명"`
   - 적용: `.venv/bin/alembic upgrade head` (docker db가 떠 있어야 함, `docker compose up -d db`)
   - (TBD: 시딩 스크립트 — 큐레이션 아이템 등 생기면 여기에 기록)
+- 백엔드 테스트: `cd backend && .venv/bin/pytest -v` (docker db가 떠 있어야 함, `docker compose up -d db`). `conftest.py`의 세션 fixture는 `Base.metadata.create_all()`만 하고 **drop은 하지 않음** — dev DB가 pytest·docker가 공유하는 동일 DB라서, 세션 종료 시 테이블을 drop하면 alembic 기록과 실제 스키마가 어긋나며 다른 실행 중인 backend가 깨짐 (실제로 한 번 겪은 버그). 테스트 데이터 격리는 `db_session` fixture의 트랜잭션 롤백으로 충분히 되므로 스키마 drop은 앞으로도 추가하지 말 것
 
 ## 개발 순서 원칙
 
@@ -68,6 +80,8 @@ CLAUDE.md   → 이 문서
 
 - 사주/오행 계산, 결제(PG), 제휴 커머스는 벤더 미정 상태 → 모두 어댑터 패턴으로 인터페이스 분리, 우선 목업으로 구현
 - 모노레포 구조 사용 (frontend/backend 레포 분리 안 함)
+- 사용자 식별 모델(리드/회원, 결제 여부에 따른 노출 수준)은 `docs/superpowers/specs/2026-09-07-phase1-architecture-design.md` 및 PRD 5.6 참고
+- 계정(Account) 시스템이 붙기 전까지, 온보딩처럼 완전 익명인 리소스는 서버가 발급한 UUID 자체를 조회/수정 키로 사용 (URL에 노출돼도 추측 불가하므로 안전). Account가 생기면 그쪽 인증으로 전환
 - (TBD: 코드 스타일/린트 규칙, 커밋 컨벤션, 테스트 전략 — 정해지는 대로 추가)
 
 ## UX/카피 원칙
@@ -78,7 +92,7 @@ CLAUDE.md   → 이 문서
 
 ## 진행 상황 (Progress Log)
 
-- [ ] Phase 1 (MVP) — 시작 전
+- [ ] Phase 1 (MVP) — 진행 중 (온보딩 완료: `POST/GET/PATCH /profiles` + 입력/조회/수정 화면, 실제 연동 테스트 완료. 분석/큐레이션/결제/공유 남음)
 - [ ] Phase 2 — 시작 전
 - [ ] Phase 3 — 시작 전
 

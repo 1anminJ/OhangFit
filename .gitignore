@@ -14,3 +14,6 @@ __pycache__/
 
 # docker
 docker-compose.override.yml
+
+# superpowers subagent-driven-development scratch workspace
+.superpowers/
