@@ -8,13 +8,15 @@ import {
   updateProfile,
   getAnalysis,
   createAnalysis,
+  getCuration,
 } from "@/lib/api";
-import type { Profile, ProfileInput, AnalysisResult } from "@/lib/api";
+import type { Profile, ProfileInput, AnalysisResult, Curation } from "@/lib/api";
 
 export default function ProfileDetailPage() {
   const params = useParams<{ id: string }>();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+  const [curation, setCuration] = useState<Curation | null>(null);
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,6 +38,15 @@ export default function ProfileDetailPage() {
         setError(err instanceof Error ? err.message : "분석에 실패했습니다.")
       );
   }, [profile]);
+
+  useEffect(() => {
+    if (!analysis) return;
+    getCuration(analysis.profile_id)
+      .then(setCuration)
+      .catch((err) =>
+        setError(err instanceof Error ? err.message : "큐레이션을 불러오지 못했습니다.")
+      );
+  }, [analysis]);
 
   async function handleUpdate(values: ProfileInput) {
     const updated = await updateProfile(params.id, values);
@@ -89,6 +100,39 @@ export default function ProfileDetailPage() {
           <div>부족한 오행: {analysis.missing_elements.join(", ")}</div>
           <div>과다한 오행: {analysis.excess_elements.join(", ")}</div>
         </dl>
+      )}
+
+      <h2 className="text-lg font-bold mt-8 mb-2">오늘의 컬러</h2>
+      {!curation ? (
+        <p>불러오는 중...</p>
+      ) : (
+        <>
+          <ul className="flex gap-3 mb-6">
+            {curation.colors.map((color) => (
+              <li key={color.color_name} className="flex flex-col items-center gap-1">
+                <span
+                  className="w-8 h-8 rounded-full border"
+                  style={{ backgroundColor: color.hex_code ?? undefined }}
+                />
+                <span className="text-sm">{color.color_name}</span>
+              </li>
+            ))}
+          </ul>
+
+          <h2 className="text-lg font-bold mb-2">오늘의 추천 아이템</h2>
+          <ul className="flex flex-col gap-2">
+            {curation.items.map((item) => (
+              <li key={item.id} className="flex items-center gap-3 border rounded p-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={item.image_url} alt={item.name} className="w-12 h-12 object-cover" />
+                <div>
+                  <div>{item.name}</div>
+                  <div className="text-sm text-gray-500">{item.category}</div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </main>
   );

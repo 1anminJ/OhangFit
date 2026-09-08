@@ -27,6 +27,26 @@ export interface AnalysisResult {
   updated_at: string;
 }
 
+export interface ColorMapping {
+  element: string;
+  color_name: string;
+  hex_code: string | null;
+}
+
+export interface CurationItem {
+  id: string;
+  element: string;
+  name: string;
+  category: string;
+  image_url: string;
+}
+
+export interface Curation {
+  missing_elements: string[];
+  colors: ColorMapping[];
+  items: CurationItem[];
+}
+
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const body = await response.json().catch(() => ({ detail: null }));
@@ -87,4 +107,9 @@ export async function createAnalysis(profileId: string): Promise<AnalysisResult>
 export async function getAnalysis(profileId: string): Promise<AnalysisResult> {
   const response = await fetch(`${API_BASE_URL}/profiles/${profileId}/analysis`);
   return handleResponse<AnalysisResult>(response);
+}
+
+export async function getCuration(profileId: string): Promise<Curation> {
+  const response = await fetch(`${API_BASE_URL}/profiles/${profileId}/curation`);
+  return handleResponse<Curation>(response);
 }
