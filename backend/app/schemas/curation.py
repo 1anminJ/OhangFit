@@ -25,3 +25,4 @@ class CurationResponse(BaseModel):
     missing_elements: list[str]
     colors: list[ColorMappingRead]
     items: list[CurationItemRead]
+    locked: bool

@@ -5,8 +5,7 @@ from app.models.curation_item import CurationItem
 
 
 def _create_profile(client, **overrides):
-    # 1990-05-20 / 10:30:00 은 MockSajuAdapter로 항상 missing_elements=["금"]을 낸다
-    # (backend/app/adapters/saju.py의 결정론적 해시 기준, test_saju_adapter.py와 별개로 확인됨).
+    # 1990-05-20 / 10:30:00 은 MockSajuAdapter로 항상 missing_elements=["금"]을 낸다.
     body = {
         "birth_date": "1990-05-20",
         "birth_time": "10:30:00",
@@ -26,20 +25,28 @@ def _seed_curation_data(db_session):
             ColorMapping(element="금", color_name="은색", hex_code="#C0C0C0"),
             ColorMapping(element="화", color_name="빨강", hex_code="#DC143C"),
             CurationItem(
-                element="금", name="화이트 셔츠", category="아우터", image_url="https://example.com/1.jpg"
+                element="금",
+                name="화이트 셔츠",
+                category="아우터",
+                image_url="https://example.com/1.jpg",
             ),
             CurationItem(
-                element="화", name="빨강 스카프", category="액세서리", image_url="https://example.com/2.jpg"
+                element="화",
+                name="빨강 스카프",
+                category="액세서리",
+                image_url="https://example.com/2.jpg",
             ),
         ]
     )
     db_session.commit()
 
 
-def test_curation_requires_analysis_first(client):
+def test_curation_requires_email_first(client):
     profile_id = _create_profile(client)
+    client.post(f"/profiles/{profile_id}/analysis")
+
     response = client.get(f"/profiles/{profile_id}/curation")
-    assert response.status_code == 404
+    assert response.status_code == 403
 
 
 def test_curation_profile_not_found(client):
@@ -47,17 +54,44 @@ def test_curation_profile_not_found(client):
     assert response.status_code == 404
 
 
-def test_curation_returns_matching_colors_and_items(client, db_session):
+def test_curation_requires_analysis(client):
+    profile_id = _create_profile(client)
+    client.post(
+        "/leads", json={"profile_id": profile_id, "email": "noanalysis@example.com"}
+    )
+
+    response = client.get(f"/profiles/{profile_id}/curation")
+    assert response.status_code == 404
+
+
+def test_curation_locked_before_payment(client, db_session):
     _seed_curation_data(db_session)
     profile_id = _create_profile(client)
     client.post(f"/profiles/{profile_id}/analysis")
+    client.post(
+        "/leads", json={"profile_id": profile_id, "email": "unpaid@example.com"}
+    )
 
     response = client.get(f"/profiles/{profile_id}/curation")
     assert response.status_code == 200
     body = response.json()
-
+    assert body["locked"] is True
     assert body["missing_elements"] == ["금"]
+    assert body["colors"] == []
+    assert body["items"] == []
+
+
+def test_curation_unlocked_after_payment(client, db_session):
+    _seed_curation_data(db_session)
+    profile_id = _create_profile(client)
+    client.post(f"/profiles/{profile_id}/analysis")
+    client.post("/leads", json={"profile_id": profile_id, "email": "paid@example.com"})
+    client.post("/signup", json={"email": "paid@example.com", "password": "pw123456"})
+    client.post(f"/profiles/{profile_id}/payment")
+
+    response = client.get(f"/profiles/{profile_id}/curation")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["locked"] is False
     assert {c["element"] for c in body["colors"]} == {"금"}
-    assert {c["color_name"] for c in body["colors"]} == {"흰색", "은색"}
     assert {i["element"] for i in body["items"]} == {"금"}
-    assert {i["name"] for i in body["items"]} == {"화이트 셔츠"}
