@@ -9,9 +9,11 @@ from app.config import settings
 from app.db import Base
 # 모델은 여기서 import되어야 Base.metadata에 등록되고 autogenerate가 인식함
 from app.models import (  # noqa: F401
+    account,
     analysis_result,
     color_mapping,
     curation_item,
+    payment,
     profile,
 )
 
