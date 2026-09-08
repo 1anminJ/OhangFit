@@ -16,6 +16,17 @@ export interface Profile extends ProfileInput {
   updated_at: string;
 }
 
+export interface AnalysisResult {
+  id: string;
+  profile_id: string;
+  five_elements: Record<string, number>;
+  missing_elements: string[];
+  excess_elements: string[];
+  sinsal: string[];
+  created_at: string;
+  updated_at: string;
+}
+
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const body = await response.json().catch(() => ({ detail: null }));
@@ -64,4 +75,16 @@ export async function updateProfile(
     body: JSON.stringify(input),
   });
   return handleResponse<Profile>(response);
+}
+
+export async function createAnalysis(profileId: string): Promise<AnalysisResult> {
+  const response = await fetch(`${API_BASE_URL}/profiles/${profileId}/analysis`, {
+    method: "POST",
+  });
+  return handleResponse<AnalysisResult>(response);
+}
+
+export async function getAnalysis(profileId: string): Promise<AnalysisResult> {
+  const response = await fetch(`${API_BASE_URL}/profiles/${profileId}/analysis`);
+  return handleResponse<AnalysisResult>(response);
 }
