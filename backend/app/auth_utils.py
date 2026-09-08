@@ -1,6 +1,8 @@
 import secrets
 from datetime import datetime, timezone
 
+import bcrypt
+
 from app.models.account import Account
 
 
@@ -10,3 +12,11 @@ def issue_token(account: Account) -> str:
     account.access_token = token
     account.token_created_at = datetime.now(timezone.utc)
     return token
+
+
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+
+def verify_password(password: str, password_hash: str) -> bool:
+    return bcrypt.checkpw(password.encode(), password_hash.encode())
