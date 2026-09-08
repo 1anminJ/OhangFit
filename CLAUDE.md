@@ -29,20 +29,24 @@
 /frontend   → Next.js (App Router, TypeScript, Tailwind), 모바일 우선 반응형
   /src/app
     /onboarding        → 온보딩 입력 화면 (생성)
-    /onboarding/[id]   → 저장된 온보딩 결과 조회/수정 화면
+    /onboarding/[id]   → 저장된 온보딩 결과 조회/수정 화면 + 이메일게이트/회원가입/결제 UI
+    /magic-link/[token] → 매직링크 클릭 시 profile_id 조회 후 리다이렉트
+    /login             → 이메일+비밀번호 로그인, profile_id 조회 후 리다이렉트
   /src/components      → 재사용 컴포넌트 (OnboardingForm 등)
   /src/lib/api.ts       → 백엔드 API 클라이언트 (fetch 래퍼, 타입)
 /backend    → Python FastAPI
   /app
-    main.py   → FastAPI 앱, 라우터 등록
-    config.py → 환경변수 설정 (pydantic-settings)
-    db.py     → SQLAlchemy 엔진/세션/Base
-    /models   → SQLAlchemy 모델 (Profile, AnalysisResult 등)
+    main.py       → FastAPI 앱, 라우터 등록
+    config.py     → 환경변수 설정 (pydantic-settings)
+    db.py         → SQLAlchemy 엔진/세션/Base
+    auth_utils.py → 인증 공용 유틸 (issue_token, hash_password, verify_password)
+    /models   → SQLAlchemy 모델 (Profile, AnalysisResult, Account, Payment 등)
     /schemas  → Pydantic 스키마 (요청/응답 검증)
-    /routers  → API 라우터 (/profiles, /profiles/{id}/analysis, /profiles/{id}/curation 등)
-    /adapters → 외부 연동 어댑터 인터페이스 (SajuAdapter 등). 벤더 미정인 동안은
-                Mock*Adapter 구현체로 채워두고, 벤더 정해지면 같은 인터페이스의
-                새 구현체로 교체 (호출부는 안 바뀜)
+    /routers  → API 라우터 (/profiles, /profiles/{id}/analysis, /profiles/{id}/curation,
+                /leads, /signup, /login, /profiles/{id}/payment 등)
+    /adapters → 외부 연동 어댑터 인터페이스 (SajuAdapter, EmailAdapter, PaymentAdapter 등).
+                벤더 미정인 동안은 Mock*Adapter 구현체로 채워두고, 벤더 정해지면 같은
+                인터페이스의 새 구현체로 교체 (호출부는 안 바뀜)
   /alembic    → DB 마이그레이션
   /scripts    → 시딩 등 관리 스크립트 (seed_curation.py 등). 실행: `cd backend && .venv/bin/python -m scripts.<파일명>`
   /tests      → pytest (모델/스키마/API 단위·통합 테스트)
@@ -86,7 +90,8 @@ CLAUDE.md   → 이 문서
 - 사주/오행 계산, 결제(PG), 제휴 커머스는 벤더 미정 상태 → 모두 어댑터 패턴으로 인터페이스 분리, 우선 목업으로 구현
 - 모노레포 구조 사용 (frontend/backend 레포 분리 안 함)
 - 사용자 식별 모델(리드/회원, 결제 여부에 따른 노출 수준)은 `docs/superpowers/specs/2026-09-07-phase1-architecture-design.md` 및 PRD 5.6 참고
-- 계정(Account) 시스템이 붙기 전까지, 온보딩처럼 완전 익명인 리소스는 서버가 발급한 UUID 자체를 조회/수정 키로 사용 (URL에 노출돼도 추측 불가하므로 안전). Account가 생기면 그쪽 인증으로 전환
+- 온보딩/분석/큐레이션은 서버가 발급한 UUID(`profile_id`) 자체를 조회/수정 키로 계속 사용 (URL에 노출돼도 추측 불가하므로 안전) — Account 도입 이후에도 이 패턴은 유지, 인증 헤더를 얹지 않음
+- Account(리드/회원): 인증 토큰(`access_token`)은 "이메일/비밀번호 → 내 profile_id 찾기" 용도로만 쓴다 (`/leads`, `/leads/by-token/{token}`, `/signup`, `/login`). 그 외 엔드포인트는 위 원칙대로 계속 UUID 기반. 매직링크·로그인 세션은 같은 `access_token` 필드를 공유(재발급 시 이전 토큰 자동 무효화). 비밀번호는 `bcrypt` 해싱
 - (TBD: 코드 스타일/린트 규칙, 커밋 컨벤션, 테스트 전략 — 정해지는 대로 추가)
 
 ## UX/카피 원칙
@@ -97,7 +102,7 @@ CLAUDE.md   → 이 문서
 
 ## 진행 상황 (Progress Log)
 
-- [ ] Phase 1 (MVP) — 진행 중 (온보딩·분석·큐레이션 완료. 온보딩: `POST/GET/PATCH /profiles` + 입력/조회/수정 화면. 분석: `POST/GET /profiles/{id}/analysis`(MockSajuAdapter, 결정론적 목업) + 오행 분포/부족/과다 표시, 온보딩 저장 시 자동 실행. 큐레이션: `GET /profiles/{id}/curation`(부족 오행 → 컬러 매핑 + 자체 아이템, 시딩 데이터) + "오늘의 컬러"/"오늘의 추천 아이템" 표시, 분석 완료 시 자동 실행. 셋 다 실제 연동 테스트 완료. 결제/공유 남음)
+- [ ] Phase 1 (MVP) — 진행 중 (온보딩·분석·큐레이션·결제 완료. 온보딩: `POST/GET/PATCH /profiles` + 입력/조회/수정 화면. 분석: `POST/GET /profiles/{id}/analysis`(MockSajuAdapter, 결정론적 목업) + 오행 분포/부족/과다 표시, 온보딩 저장 시 자동 실행. 큐레이션: `GET /profiles/{id}/curation`(부족 오행 → 컬러 매핑 + 자체 아이템, 시딩 데이터) + "오늘의 컬러"/"오늘의 추천 아이템" 표시, 분석 완료 시 자동 실행. 결제: 이메일 리드 캡처(`POST /leads`) + 매직링크(`GET /leads/by-token/{token}`) + 회원가입/로그인(`POST /signup`, `POST /login`) + 결제 목업(`POST /profiles/{id}/payment`, MockPaymentAdapter) + 큐레이션 3단계 게이팅(계정없음 403 / 미결제 잠금 / 결제완료 전체노출). 넷 다 실제 연동 테스트 완료. 공유 남음)
 - [ ] Phase 2 — 시작 전
 - [ ] Phase 3 — 시작 전
 
