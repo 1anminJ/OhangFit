@@ -45,6 +45,26 @@ export interface Curation {
   missing_elements: string[];
   colors: ColorMapping[];
   items: CurationItem[];
+  locked: boolean;
+}
+
+export interface LeadResult {
+  account_id: string;
+  email: string;
+  role: string;
+  magic_link_url: string;
+}
+
+export interface AuthResult {
+  profile_id: string;
+}
+
+export interface Payment {
+  id: string;
+  profile_id: string;
+  amount: number;
+  status: string;
+  paid_at: string | null;
 }
 
 async function handleResponse<T>(response: Response): Promise<T> {
@@ -112,4 +132,43 @@ export async function getAnalysis(profileId: string): Promise<AnalysisResult> {
 export async function getCuration(profileId: string): Promise<Curation> {
   const response = await fetch(`${API_BASE_URL}/profiles/${profileId}/curation`);
   return handleResponse<Curation>(response);
+}
+
+export async function createLead(profileId: string, email: string): Promise<LeadResult> {
+  const response = await fetch(`${API_BASE_URL}/leads`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ profile_id: profileId, email }),
+  });
+  return handleResponse<LeadResult>(response);
+}
+
+export async function getProfileIdByToken(token: string): Promise<AuthResult> {
+  const response = await fetch(`${API_BASE_URL}/leads/by-token/${token}`);
+  return handleResponse<AuthResult>(response);
+}
+
+export async function signup(email: string, password: string): Promise<AuthResult> {
+  const response = await fetch(`${API_BASE_URL}/signup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  return handleResponse<AuthResult>(response);
+}
+
+export async function login(email: string, password: string): Promise<AuthResult> {
+  const response = await fetch(`${API_BASE_URL}/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  return handleResponse<AuthResult>(response);
+}
+
+export async function createPayment(profileId: string): Promise<Payment> {
+  const response = await fetch(`${API_BASE_URL}/profiles/${profileId}/payment`, {
+    method: "POST",
+  });
+  return handleResponse<Payment>(response);
 }
