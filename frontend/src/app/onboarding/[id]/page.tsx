@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, FormEvent } from "react";
 import { useParams } from "next/navigation";
 import { OnboardingForm } from "@/components/OnboardingForm";
 import {
@@ -9,6 +9,9 @@ import {
   getAnalysis,
   createAnalysis,
   getCuration,
+  createLead,
+  signup,
+  createPayment,
 } from "@/lib/api";
 import type { Profile, ProfileInput, AnalysisResult, Curation } from "@/lib/api";
 
@@ -17,8 +20,18 @@ export default function ProfileDetailPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [curation, setCuration] = useState<Curation | null>(null);
+  const [needsEmail, setNeedsEmail] = useState(false);
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [email, setEmail] = useState("");
+  const [emailSubmitting, setEmailSubmitting] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [magicLinkUrl, setMagicLinkUrl] = useState<string | null>(null);
+
+  const [password, setPassword] = useState("");
+  const [payingSubmitting, setPayingSubmitting] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
 
   useEffect(() => {
     getProfile(params.id)
@@ -30,7 +43,6 @@ export default function ProfileDetailPage() {
 
   useEffect(() => {
     if (!profile) return;
-    // 저장된 분석이 있으면 그대로 쓰고, 없으면(첫 방문) 자동으로 분석을 실행한다.
     getAnalysis(profile.id)
       .catch(() => createAnalysis(profile.id))
       .then(setAnalysis)
@@ -39,13 +51,18 @@ export default function ProfileDetailPage() {
       );
   }, [profile]);
 
+  function loadCuration(profileId: string) {
+    getCuration(profileId)
+      .then((result) => {
+        setCuration(result);
+        setNeedsEmail(false);
+      })
+      .catch(() => setNeedsEmail(true));
+  }
+
   useEffect(() => {
     if (!analysis) return;
-    getCuration(analysis.profile_id)
-      .then(setCuration)
-      .catch((err) =>
-        setError(err instanceof Error ? err.message : "큐레이션을 불러오지 못했습니다.")
-      );
+    loadCuration(analysis.profile_id);
   }, [analysis]);
 
   async function handleUpdate(values: ProfileInput) {
@@ -53,6 +70,38 @@ export default function ProfileDetailPage() {
     setProfile(updated);
     setEditing(false);
     setAnalysis(await createAnalysis(updated.id));
+  }
+
+  async function handleEmailSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!profile) return;
+    setEmailError(null);
+    setEmailSubmitting(true);
+    try {
+      const lead = await createLead(profile.id, email);
+      setMagicLinkUrl(lead.magic_link_url);
+      loadCuration(profile.id);
+    } catch (err) {
+      setEmailError(err instanceof Error ? err.message : "이메일 등록에 실패했습니다.");
+    } finally {
+      setEmailSubmitting(false);
+    }
+  }
+
+  async function handlePaySubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!profile) return;
+    setPayError(null);
+    setPayingSubmitting(true);
+    try {
+      await signup(email, password);
+      await createPayment(profile.id);
+      loadCuration(profile.id);
+    } catch (err) {
+      setPayError(err instanceof Error ? err.message : "결제에 실패했습니다.");
+    } finally {
+      setPayingSubmitting(false);
+    }
   }
 
   if (error) return <main className="p-6 text-red-600">{error}</main>;
@@ -103,9 +152,71 @@ export default function ProfileDetailPage() {
       )}
 
       <h2 className="text-lg font-bold mt-8 mb-2">오늘의 컬러</h2>
-      {!curation ? (
-        <p>불러오는 중...</p>
-      ) : (
+
+      {needsEmail && (
+        <form onSubmit={handleEmailSubmit} className="flex flex-col gap-3 max-w-sm">
+          <p>이메일을 입력하면 결과를 보내드려요.</p>
+          <input
+            type="email"
+            required
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="border rounded px-3 py-2"
+          />
+          {emailError && <p className="text-red-600 text-sm">{emailError}</p>}
+          <button
+            type="submit"
+            disabled={emailSubmitting}
+            className="bg-black text-white rounded px-4 py-2 disabled:opacity-50"
+          >
+            {emailSubmitting ? "처리 중..." : "이메일 제출"}
+          </button>
+        </form>
+      )}
+
+      {magicLinkUrl && (
+        <p className="text-sm text-gray-500 mt-2">
+          (개발용) 결과 조회 링크: {magicLinkUrl}
+        </p>
+      )}
+
+      {curation && curation.locked && (
+        <div className="mt-4">
+          <p className="mb-3">
+            컬러/아이템은 결제 후에 볼 수 있어요. 회원가입하고 결제하면 바로 잠금
+            해제됩니다. (이메일은 위에서 입력한 것을 그대로 쓰는 걸 권장해요)
+          </p>
+          <form onSubmit={handlePaySubmit} className="flex flex-col gap-3 max-w-sm">
+            <input
+              type="email"
+              required
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="border rounded px-3 py-2"
+            />
+            <input
+              type="password"
+              required
+              placeholder="비밀번호"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="border rounded px-3 py-2"
+            />
+            {payError && <p className="text-red-600 text-sm">{payError}</p>}
+            <button
+              type="submit"
+              disabled={payingSubmitting}
+              className="bg-black text-white rounded px-4 py-2 disabled:opacity-50"
+            >
+              {payingSubmitting ? "처리 중..." : "회원가입하고 결제하기"}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {curation && !curation.locked && (
         <>
           <ul className="flex gap-3 mb-6">
             {curation.colors.map((color) => (
