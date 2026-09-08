@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.db import Base, engine, get_db
 from app.main import app
-from app.models import profile  # noqa: F401  Base.metadata에 테이블 등록
+from app.models import account, profile  # noqa: F401  Base.metadata에 테이블 등록
 
 
 @pytest.fixture(scope="session", autouse=True)

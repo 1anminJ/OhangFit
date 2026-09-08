@@ -14,6 +14,7 @@ def test_profile_columns():
         "birth_time_unknown",
         "gender",
         "birth_region",
+        "account_id",
         "created_at",
         "updated_at",
     }
