@@ -65,3 +65,9 @@ def test_lead_by_token_returns_profile_id(client):
 def test_lead_by_invalid_token(client):
     response = client.get("/leads/by-token/nonexistent-token")
     assert response.status_code == 404
+
+
+def test_create_lead_rejects_empty_email(client):
+    profile_id = _create_profile(client)
+    response = client.post("/leads", json={"profile_id": profile_id, "email": ""})
+    assert response.status_code == 422

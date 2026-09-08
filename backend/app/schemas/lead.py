@@ -1,11 +1,11 @@
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class LeadCreate(BaseModel):
     profile_id: UUID
-    email: str
+    email: str = Field(min_length=1, max_length=255)
 
 
 class LeadRead(BaseModel):

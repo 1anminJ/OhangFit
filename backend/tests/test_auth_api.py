@@ -70,3 +70,12 @@ def test_login_unknown_email(client):
         "/login", json={"email": "nobody@example.com", "password": "whatever"}
     )
     assert response.status_code == 401
+
+
+def test_signup_rejects_oversized_password(client):
+    _create_lead(client, email="longpw@example.com")
+    response = client.post(
+        "/signup",
+        json={"email": "longpw@example.com", "password": "x" * 73},
+    )
+    assert response.status_code == 422

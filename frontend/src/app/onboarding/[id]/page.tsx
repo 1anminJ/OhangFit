@@ -11,6 +11,7 @@ import {
   getCuration,
   createLead,
   signup,
+  login,
   createPayment,
 } from "@/lib/api";
 import type { Profile, ProfileInput, AnalysisResult, Curation } from "@/lib/api";
@@ -94,7 +95,11 @@ export default function ProfileDetailPage() {
     setPayError(null);
     setPayingSubmitting(true);
     try {
-      await signup(email, password);
+      try {
+        await signup(email, password);
+      } catch {
+        await login(email, password);
+      }
       await createPayment(profile.id);
       loadCuration(profile.id);
     } catch (err) {

@@ -15,11 +15,17 @@ from app.schemas.curation import ColorMappingRead, CurationItemRead, CurationRes
 router = APIRouter(prefix="/profiles/{profile_id}/curation", tags=["curation"])
 
 
-def _has_successful_payment(account_id: UUID, db: Session) -> bool:
-    stmt = select(Payment).where(
-        Payment.account_id == account_id, Payment.status == "success"
+def _has_successful_payment(profile_id: UUID, account_id: UUID, db: Session) -> bool:
+    stmt = (
+        select(Payment.id)
+        .where(
+            Payment.account_id == account_id,
+            Payment.profile_id == profile_id,
+            Payment.status == "success",
+        )
+        .limit(1)
     )
-    return db.execute(stmt).scalar_one_or_none() is not None
+    return db.execute(stmt).first() is not None
 
 
 @router.get("", response_model=CurationResponse)
@@ -39,7 +45,7 @@ def get_curation(profile_id: UUID, db: Session = Depends(get_db)) -> CurationRes
 
     missing = analysis.missing_elements
 
-    if not _has_successful_payment(profile.account_id, db):
+    if not _has_successful_payment(profile_id, profile.account_id, db):
         return CurationResponse(
             missing_elements=missing, colors=[], items=[], locked=True
         )
